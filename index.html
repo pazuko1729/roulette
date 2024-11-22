@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ルーレットアプリ</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #ffecd2, #fcb69f);
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        h1 {
+            color: #ff6f61;
+        }
+
+        #playerForm {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        #players {
+            display: flex;
+            flex-direction: column; /* 縦方向に要素を配置 */
+            gap: 10px; /* 各入力欄の間隔 */
+        }
+
+        /* #playerForm div {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        } */
+
+        #players div {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100px; /* 入力欄を小さく調整 */
+            padding: 5px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #ff6f61;
+            color: #fff;
+            border: none;
+            padding: 5px 10px;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #e6554f;
+        }
+
+        /* body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #ffecd2, #fcb69f);
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        h1 {
+            font-size: 2rem;
+            margin: 20px 0;
+        }
+        #input-section, #roulette-section {
+            padding: 20px;
+            margin: auto;
+            max-width: 500px;
+            background: #ffffffd9;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        input[type="text"], input[type="number"] {
+            padding: 5px;
+            margin: 5px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            width: calc(100% - 20px);
+        }
+        button {
+            margin: 10px 0;
+            padding: 10px 20px;
+            background-color: #ff6f61;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+        } */
+        #roulette {
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+        #pointer {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid red;
+        }
+        
+        #winner {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>回収率ルーレット</h1>
+    <div id="input-section">
+        <form id="playerForm">
+            <div id="players">
+                <div>
+                    名前: <input type="text" name="name" required>
+                    回収率: <input type="number" name="percentage" min="1" max="200" required>%
+                    <button type="button" onclick="removePlayer(this)">削除</button>
+                </div>
+            </div>
+            <button type="button" onclick="addPlayer()">プレイヤー追加</button>
+            <button type="button" onclick="createRoulette()">ルーレット作成</button>
+        </form>
+    </div>
+    <div id="roulette-section" style="display: none;">
+        <div id="roulette-container" style="position: relative; width: 300px; height: 300px; margin: auto;">
+            <canvas id="roulette" width="300" height="300"></canvas>
+            <div id="pointer"></div>
+        </div>
+        <button onclick="startRoulette()">ルーレット開始</button>
+        <h2 id="winner"></h2>
+    </div>
+    <script>
+        const colors = ['#f94144', '#f3722c', '#f8961e', '#f9c74f', '#90be6d', '#43aa8b'];
+
+        function addPlayer() {
+            const playersDiv = document.getElementById('players');
+            const newPlayerDiv = document.createElement('div');
+            newPlayerDiv.innerHTML = `
+                名前: <input type="text" name="name" required>
+                回収率: <input type="number" name="percentage" min="1" max="200" required>%
+                <button type="button" onclick="removePlayer(this)">削除</button>
+            `;
+            playersDiv.appendChild(newPlayerDiv); // 下に追加
+        }
+
+        function removePlayer(button) {
+            button.parentElement.remove();
+        }
+
+        function createRoulette() {
+            const form = document.getElementById('playerForm');
+            const formData = new FormData(form);
+
+            const players = [];
+            const names = formData.getAll('name');
+            const percentages = formData.getAll('percentage');
+
+            for (let i = 0; i < names.length; i++) {
+                players.push({ name: names[i], percentage: parseFloat(percentages[i]) });
+            }
+
+            document.getElementById('input-section').style.display = 'none';
+            document.getElementById('roulette-section').style.display = 'block';
+
+            drawRoulette(players);
+        }
+
+        function drawRoulette(players) {
+            const canvas = document.getElementById('roulette');
+            const ctx = canvas.getContext('2d');
+
+            const totalPercentage = players.reduce((sum, player) => sum + player.percentage, 0);
+            let startAngle = 0;
+
+            players.forEach((player, index) => {
+                const sliceAngle = (player.percentage / totalPercentage) * 2 * Math.PI;
+                ctx.beginPath();
+                ctx.moveTo(150, 150);
+                ctx.arc(150, 150, 150, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = colors[index % colors.length];
+                ctx.fill();
+
+                const midAngle = startAngle + sliceAngle / 2;
+                ctx.fillStyle = '#000';
+                ctx.font = '14px Arial';
+                ctx.fillText(
+                    player.name,
+                    150 + Math.cos(midAngle) * 100,
+                    150 + Math.sin(midAngle) * 100
+                );
+
+                startAngle += sliceAngle;
+            });
+        }
+
+        function startRoulette() {
+            const canvas = document.getElementById('roulette');
+            const ctx = canvas.getContext('2d');
+            const winnerText = document.getElementById('winner');
+
+            const formData = new FormData(document.getElementById('playerForm'));
+            const players = [];
+            const names = formData.getAll('name');
+            const percentages = formData.getAll('percentage');
+
+            for (let i = 0; i < names.length; i++) {
+                players.push({ name: names[i], percentage: parseFloat(percentages[i]) });
+            }
+
+            const totalPercentage = players.reduce((sum, player) => sum + player.percentage, 0);
+
+            let currentAngle = 0;
+            let speed = Math.random() * 5 + 15; // 初速度
+            const friction = 0.985; // 減速係数
+            let finalPlayer = '';
+
+            function rotate() {
+                // キャンバスをクリアしてルーレットを再描画
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(currentAngle);
+                ctx.translate(-canvas.width / 2, -canvas.height / 2);
+                drawRoulette(players); // プレイヤー情報をもとにルーレットを描画
+                ctx.restore();
+
+                // 回転を減速させる
+                speed *= friction;
+                currentAngle += speed * Math.PI / 180; // 速度を角度に変換して加算
+
+                // 回転停止の判定
+                if (speed < 0.02) {
+                    const finalAngle = (2 * Math.PI - (currentAngle % (2 * Math.PI))) % (2 * Math.PI);
+                    const pointerAngle = Math.PI / 2; // 12時方向の角度（ラジアン）
+
+                    // 12時方向に該当する角度を計算
+                    const stopAngle = (finalAngle + pointerAngle) % (2 * Math.PI);
+
+                    let accumulatedAngle = 0;
+
+                    // 停止位置から勝者を決定
+                    for (const player of players) {
+                        const sliceAngle = (player.percentage / totalPercentage) * 2 * Math.PI;
+                        if (stopAngle >= accumulatedAngle && stopAngle < accumulatedAngle + sliceAngle) {
+                            finalPlayer = player.name;
+                            break;
+                        }
+                        accumulatedAngle += sliceAngle;
+                    }
+
+                    // winnerText.textContent = `勝者: ${finalPlayer}`;
+                    winnerText.style.color = "#ff6f61";
+                    return;
+                }
+
+                // アニメーションを継続
+                requestAnimationFrame(rotate);
+            }
+
+            rotate(); // アニメーション開始
+        }
+
+
+    </script>
+</body>
+</html>
